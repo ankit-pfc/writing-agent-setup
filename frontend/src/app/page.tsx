@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { PlayCircle, FileText, CheckCircle2, RotateCw, XCircle, LayoutDashboard, Settings } from "lucide-react"
+import { PlayCircle, FileText, CheckCircle2, RotateCw, XCircle, LayoutDashboard, Settings, Search, PenTool, Edit3, Sparkles, Upload, MessageSquare } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,11 +11,62 @@ import { Badge } from "@/components/ui/badge"
 
 const API_BASE_URL = "http://localhost:8000/api"
 
+// Pipeline stage definitions with icons and colors
+const STAGES = {
+  pending: { label: "Pending", icon: RotateCw, color: "bg-zinc-500", textColor: "text-zinc-700" },
+  brief: { label: "Brief", icon: FileText, color: "bg-blue-500", textColor: "text-blue-700" },
+  research: { label: "Research", icon: Search, color: "bg-cyan-500", textColor: "text-cyan-700" },
+  writing: { label: "Writing", icon: PenTool, color: "bg-amber-500", textColor: "text-amber-700" },
+  editing: { label: "Editing", icon: Edit3, color: "bg-orange-500", textColor: "text-orange-700" },
+  revision: { label: "Revision", icon: RotateCw, color: "bg-purple-500", textColor: "text-purple-700" },
+  seo_optimization: { label: "SEO", icon: Sparkles, color: "bg-indigo-500", textColor: "text-indigo-700" },
+  published: { label: "Published", icon: CheckCircle2, color: "bg-emerald-500", textColor: "text-emerald-700" },
+  failed: { label: "Failed", icon: XCircle, color: "bg-red-500", textColor: "text-red-700" },
+}
+
+interface Pipeline {
+  id: string
+  topic: string
+  page_type: string
+  status: string
+  revision_count?: number
+  max_revisions?: number
+  content?: string
+  metadata_json?: {
+    total_score?: number
+    status?: string
+    feedback?: string
+    dimension_1_depth?: number
+    dimension_3_voice?: number
+    dimension_6_exclusion_safety?: number
+    seo_score?: {
+      score?: number
+      grade?: string
+    }
+    revision_feedback?: string
+  }
+  seo_output?: {
+    optimization_summary?: {
+      meta_title_length?: number
+      internal_links_added?: number
+      schema_type?: string
+      aeo_blocks_added?: number
+    }
+    meta_tags?: {
+      title?: string
+      description?: string
+    }
+  }
+  created_at?: string
+  updated_at?: string
+}
+
 export default function Dashboard() {
   const [topic, setTopic] = useState("")
   const [pageType, setPageType] = useState("blog_post")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [pipelines, setPipelines] = useState<any[]>([])
+  const [pipelines, setPipelines] = useState<Pipeline[]>([])
+  const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null)
 
   const fetchPipelines = async () => {
     try {
@@ -61,14 +112,23 @@ export default function Dashboard() {
   }
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "published": return <Badge variant="success" className="bg-emerald-500"><CheckCircle2 className="w-3 h-3 mr-1" /> Published</Badge>
-      case "failed": return <Badge variant="destructive" className="bg-red-500"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>
-      case "writing": return <Badge variant="warning" className="bg-amber-500 text-white"><RotateCw className="w-3 h-3 mr-1 animate-spin" /> Writing</Badge>
-      case "editing": return <Badge variant="warning" className="bg-orange-500 text-white"><RotateCw className="w-3 h-3 mr-1 animate-spin" /> Editing</Badge>
-      case "revision": return <Badge variant="warning" className="bg-blue-500 text-white"><RotateCw className="w-3 h-3 mr-1 animate-spin" /> Revision</Badge>
-      default: return <Badge variant="secondary"><RotateCw className="w-3 h-3 mr-1 animate-spin" /> {status}</Badge>
-    }
+    const stage = STAGES[status as keyof typeof STAGES] || STAGES.pending
+    const Icon = stage.icon
+    const isAnimating = ["writing", "editing", "revision", "research", "brief", "seo_optimization"].includes(status)
+
+    return (
+      <Badge variant="secondary" className={`${stage.color} text-white`}>
+        <Icon className={`w-3 h-3 mr-1 ${isAnimating ? "animate-spin" : ""}`} />
+        {stage.label}
+      </Badge>
+    )
+  }
+
+  const getStageProgress = (status: string) => {
+    const stageOrder = ["pending", "brief", "research", "writing", "editing", "revision", "seo_optimization", "published"]
+    const currentIndex = stageOrder.indexOf(status)
+    const progress = ((currentIndex + 1) / stageOrder.length) * 100
+    return Math.min(progress, 100)
   }
 
   return (
@@ -79,6 +139,9 @@ export default function Dashboard() {
           Content Agent CMS
         </div>
         <div className="ml-auto flex items-center gap-4">
+          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+            Phase 2 Active
+          </Badge>
           <Button variant="ghost" size="sm" className="hidden md:flex">
             <Settings className="w-4 h-4 mr-2" />
             Agent Config
@@ -137,6 +200,25 @@ export default function Dashboard() {
               </form>
             </CardContent>
           </Card>
+
+          {/* Pipeline Stages Legend */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Pipeline Stages</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2 text-xs">
+              {Object.entries(STAGES).map(([key, stage]) => {
+                const Icon = stage.icon
+                return (
+                  <div key={key} className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${stage.color}`} />
+                    <Icon className="w-3 h-3 text-zinc-500" />
+                    <span className="text-zinc-600">{stage.label}</span>
+                  </div>
+                )
+              })}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right Column - Kanban / List */}
@@ -144,7 +226,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold tracking-tight">Active Pipelines</h2>
             <Badge variant="outline" className="px-3 py-1 font-medium bg-white shadow-sm">
-              {pipelines.length} In Progress
+              {pipelines.length} Total
             </Badge>
           </div>
 
@@ -157,50 +239,100 @@ export default function Dashboard() {
               </div>
             ) : (
               pipelines.map((p) => (
-                <Card key={p.id} className="overflow-hidden bg-white/50 backdrop-blur-sm transition-shadow hover:shadow-md border-zinc-200">
-                  <div className="flex flex-col md:flex-row gap-4 p-5">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-lg text-zinc-900 line-clamp-1" title={p.topic}>
-                          {p.topic}
-                        </h3>
-                        {getStatusBadge(p.status)}
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-zinc-500">
-                        <span className="capitalize px-2 py-0.5 bg-zinc-100 rounded-md text-xs font-medium">
-                          {p.page_type.replace("_", " ")}
-                        </span>
-                        <span className="font-mono text-xs text-zinc-400">ID: {p.id.split('-')[0]}</span>
-                      </div>
-
-                      {/* Show scorecard if metadata exists and it has score */}
-                      {p.metadata_json && p.metadata_json.total_score !== undefined && (
-                        <div className="mt-4 pt-4 border-t border-zinc-100 grid grid-cols-2 md:grid-cols-4 gap-2">
-                          <div className="bg-indigo-50/50 p-2 rounded flex flex-col items-center justify-center text-center">
-                            <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">Overall Score</span>
-                            <span className="text-lg font-black text-indigo-700">{p.metadata_json.total_score || "N/A"}</span>
-                          </div>
-                          <div className="bg-zinc-50 p-2 rounded flex flex-col items-center justify-center text-center">
-                            <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Safety</span>
-                            <span className="text-sm font-semibold text-zinc-700">{p.metadata_json.dimension_6_exclusion_safety}/10</span>
-                          </div>
-                          <div className="bg-zinc-50 p-2 rounded flex flex-col items-center justify-center text-center">
-                            <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Depth</span>
-                            <span className="text-sm font-semibold text-zinc-700">{p.metadata_json.dimension_1_depth}/10</span>
-                          </div>
-                          <div className="bg-zinc-50 p-2 rounded flex flex-col items-center justify-center text-center">
-                            <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Voice</span>
-                            <span className="text-sm font-semibold text-zinc-700">{p.metadata_json.dimension_3_voice}/10</span>
-                          </div>
+                <Card
+                  key={p.id}
+                  className={`overflow-hidden bg-white/50 backdrop-blur-sm transition-shadow hover:shadow-md border-zinc-200 cursor-pointer ${selectedPipeline?.id === p.id ? 'ring-2 ring-indigo-500' : ''}`}
+                  onClick={() => setSelectedPipeline(p)}
+                >
+                  <div className="flex flex-col gap-4 p-5">
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-lg text-zinc-900 line-clamp-1" title={p.topic}>
+                            {p.topic}
+                          </h3>
+                          {getStatusBadge(p.status)}
                         </div>
-                      )}
+                        <div className="flex items-center gap-3 text-sm text-zinc-500">
+                          <span className="capitalize px-2 py-0.5 bg-zinc-100 rounded-md text-xs font-medium">
+                            {p.page_type.replace("_", " ")}
+                          </span>
+                          <span className="font-mono text-xs text-zinc-400">ID: {p.id.split('-')[0]}</span>
+                          {p.revision_count !== undefined && p.revision_count > 0 && (
+                            <span className="text-purple-600 text-xs">
+                              Rev {p.revision_count}/{p.max_revisions || 3}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
+                    {/* Progress Bar */}
+                    <div className="w-full bg-zinc-100 rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full transition-all duration-500 ${p.status === 'failed' ? 'bg-red-500' :
+                            p.status === 'published' ? 'bg-emerald-500' : 'bg-indigo-500'
+                          }`}
+                        style={{ width: `${getStageProgress(p.status)}%` }}
+                      />
+                    </div>
+
+                    {/* Scorecard Grid */}
+                    {p.metadata_json && p.metadata_json.total_score !== undefined && (
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                        <div className="bg-indigo-50/50 p-2 rounded flex flex-col items-center justify-center text-center">
+                          <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">Quality</span>
+                          <span className="text-lg font-black text-indigo-700">{p.metadata_json.total_score}</span>
+                        </div>
+                        <div className="bg-zinc-50 p-2 rounded flex flex-col items-center justify-center text-center">
+                          <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Safety</span>
+                          <span className="text-sm font-semibold text-zinc-700">{p.metadata_json.dimension_6_exclusion_safety}/10</span>
+                        </div>
+                        <div className="bg-zinc-50 p-2 rounded flex flex-col items-center justify-center text-center">
+                          <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Depth</span>
+                          <span className="text-sm font-semibold text-zinc-700">{p.metadata_json.dimension_1_depth}/10</span>
+                        </div>
+                        <div className="bg-zinc-50 p-2 rounded flex flex-col items-center justify-center text-center">
+                          <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Voice</span>
+                          <span className="text-sm font-semibold text-zinc-700">{p.metadata_json.dimension_3_voice}/10</span>
+                        </div>
+                        {p.metadata_json.seo_score && (
+                          <div className="bg-emerald-50/50 p-2 rounded flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider">SEO</span>
+                            <span className="text-sm font-semibold text-emerald-700">{p.metadata_json.seo_score.grade || '-'}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* SEO Output Summary */}
+                    {p.seo_output && p.seo_output.optimization_summary && (
+                      <div className="text-xs text-zinc-500 flex flex-wrap gap-3 pt-2 border-t border-zinc-100">
+                        <span>Title: {p.seo_output.optimization_summary.meta_title_length} chars</span>
+                        <span>Links: {p.seo_output.optimization_summary.internal_links_added}</span>
+                        <span>Schema: {p.seo_output.optimization_summary.schema_type}</span>
+                        <span>AEO: {p.seo_output.optimization_summary.aeo_blocks_added} blocks</span>
+                      </div>
+                    )}
+
+                    {/* Feedback indicator */}
+                    {p.metadata_json?.revision_feedback && (
+                      <div className="flex items-center gap-2 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                        <MessageSquare className="w-3 h-3" />
+                        <span className="truncate">{p.metadata_json.revision_feedback}</span>
+                      </div>
+                    )}
+
+                    {/* Action Button */}
                     {p.content && (
-                      <div className="w-full md:w-32 flex flex-col justify-center border-t md:border-t-0 md:border-l border-zinc-100 pt-4 md:pt-0 md:pl-4">
-                        <Button variant="outline" size="sm" className="w-full relative group">
+                      <div className="flex justify-end pt-2 border-t border-zinc-100">
+                        <Button variant="outline" size="sm" className="relative group">
+                          <FileText className="w-4 h-4 mr-2" />
                           View Draft
-                          <span className="absolute right-0 w-2 h-2 mr-2 rounded-full bg-emerald-500 animate-pulse" />
+                          {p.status === 'published' && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" />
+                          )}
                         </Button>
                       </div>
                     )}
@@ -211,6 +343,26 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* Selected Pipeline Detail Modal (simplified - shows content) */}
+      {selectedPipeline && selectedPipeline.content && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedPipeline(null)}>
+          <Card className="max-w-4xl w-full max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>{selectedPipeline.topic}</CardTitle>
+                <CardDescription>{selectedPipeline.page_type.replace('_', ' ')} • {selectedPipeline.status}</CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedPipeline(null)}>✕</Button>
+            </CardHeader>
+            <CardContent className="overflow-auto max-h-[60vh]">
+              <pre className="whitespace-pre-wrap text-sm text-zinc-700 font-sans">
+                {selectedPipeline.content}
+              </pre>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
